@@ -144,7 +144,7 @@ function updatePosition(lat, lon, u, v, dragFactor, dtSeconds) {
 
 
 
-function simulateDrift(startLat, startLon, trashType, days) {
+function simulateDrift(startLat, startLon, trashType, days, gridMap, allLats, allLons) {
   const dragFactor = TRASH_TYPES[trashType].dragFactor;
   const hour_interval = 6;
   const dtSeconds = hour_interval * 3600;  // move in hour_interval hour steps
@@ -183,42 +183,20 @@ console.log("New position:", newPos);
 */
 
 
-// build the grid and helper data structures once
-const grid = loadCurrentGrid("miamicurrents_adb9_d715_505d.json");
-const gridMap = buildGridMap(grid);
-
-const allLats = [];
-for (const point of grid) {
-  if (!allLats.includes(point.lat)) {
-    allLats.push(point.lat);
+function buildLatLons(grid) {
+  const allLats = [];
+  for (const point of grid) {
+    if (!allLats.includes(point.lat)) allLats.push(point.lat);
   }
-}
-allLats.sort((a, b) => a - b);
+  allLats.sort((a, b) => a - b);
 
-const allLons = [];
-for (const point of grid) {
-  if (!allLons.includes(point.lon)) {
-    allLons.push(point.lon);
+  const allLons = [];
+  for (const point of grid) {
+    if (!allLons.includes(point.lon)) allLons.push(point.lon);
   }
+  allLons.sort((a, b) => a - b);
+
+  return { allLats, allLons };
 }
-allLons.sort((a, b) => a - b);
 
-
-// running the simulation and exporting to json
-const startlat = 48.452089;
-const startlon = -20.239962;
-const trashtype = "plastic_bag";
-const days = 3000;
-
-const path = simulateDrift(startlat, startlon, trashtype, days);
-
-const result = {
-  trashType: trashtype,
-  startLat: startlat,
-  startLon: startlon,
-  days: days,
-  path: path
-};
-
-fs.writeFileSync("path.json", JSON.stringify(result, null, 2));
-console.log("Exported path.json");
+export { simulateDrift, loadCurrentGrid, buildGridMap, buildLatLons };
