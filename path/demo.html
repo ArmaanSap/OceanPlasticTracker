@@ -84,6 +84,26 @@
       text-align: center;
     }
     #dayInput:focus { border-color: #00d4ff; }
+
+    .leaflet-popup-content-wrapper {
+      background: rgba(6, 14, 26, 0.45) !important;
+      backdrop-filter: blur(12px) !important;
+      -webkit-backdrop-filter: blur(12px) !important;
+      border: 1px solid rgba(0, 212, 255, 0.2) !important;
+      border-radius: 12px !important;
+      box-shadow: none !important;
+      color: #e8f4f8 !important;
+    }
+
+    .leaflet-popup-tip {
+      background: rgba(6, 14, 26, 0.75) !important;
+      backdrop-filter: blur(12px) !important;
+    }
+
+    .leaflet-popup-close-button {
+      color: #6b8fa8 !important;
+    }
+
   </style>
 </head>
 <body>
@@ -114,6 +134,8 @@
     <div class="divider"></div>
 
     <button class="ctrl-btn" id="pathModeBtn" onclick="cyclePathMode()" title="Path mode">〰</button>
+
+    <button class="ctrl-btn" id="mapToggle" onclick="toggleMap()" title="Toggle satellite">⊕</button>
 
   </div>
 
@@ -159,6 +181,12 @@
     function getIntervalMs() {
       return Math.max(16, Math.round(100 / speeds[speedIdx]));
     }
+
+    const satelliteLayer = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", {
+      attribution: "Esri"
+    });
+
+    let satellite = false;
 
     function startAnimation() {
       if (animationInterval) clearInterval(animationInterval);
@@ -265,6 +293,18 @@
       document.getElementById("pathModeBtn").innerHTML = pathModeIcons[pathMode];
       document.getElementById("pathModeBtn").classList.toggle("active", pathMode !== 2);
       localStorage.setItem("pathMode", pathMode);
+    }
+
+    function toggleMap() {
+      satellite = !satellite;
+      if (satellite) {
+        map.removeLayer(tileLayer);
+        satelliteLayer.addTo(map);
+      } else {
+        map.removeLayer(satelliteLayer);
+        tileLayer.addTo(map);
+      }
+      document.getElementById("mapToggle").classList.toggle("active", satellite);
     }
 
 
