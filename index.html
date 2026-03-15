@@ -181,6 +181,7 @@
       outline: none;
       transition: border-color 0.2s;
       -webkit-appearance: none;
+      appearance: none;
     }
 
     input:focus, select:focus {
@@ -416,6 +417,13 @@
       };
     }
 
+    window.addEventListener("message", function(e) {
+      if (e.data && e.data.type === "setCoords") {
+        document.getElementById("lat").value = e.data.lat;
+        document.getElementById("lon").value = e.data.lon;
+      }
+    });
+
     function setStatus(state, message) {
       const el = document.getElementById("status");
       el.className = "status " + state;
@@ -464,7 +472,7 @@
           throw new Error(err.error);
         }
 
-        await new Promise(r => setTimeout(r, 1000));
+        await new Promise(r => setTimeout(r, 200));
         document.getElementById("map").src = "./path/demo.html?t=" + Date.now();
         setStatus("done",
           "Done — " + params.trashType.replace("_", " ") +
