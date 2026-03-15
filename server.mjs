@@ -32,5 +32,13 @@ app.post("/simulate", async (req, res) => {
   }
 });
 
+app.post("/inocean", (req, res) => {
+  const { lat, lon } = req.body;
+  const point = turf.point([lon, lat]);
+  const inOcean = ocean.features.some(feature =>
+    turf.booleanPointInPolygon(point, feature)
+  );
+  res.json({ inOcean });
+});
 
-app.listen(3000, () => console.log("Server running at http://localhost:3000/parameter-selection-interface.html"));
+app.listen(3000, () => console.log("Server running at http://localhost:3000"));
