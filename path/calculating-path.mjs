@@ -2,7 +2,7 @@ import fs from "fs";
 
 // these values are currently just made up
 const TRASH_TYPES = {
-  plastic_bag:  { dragFactor: 0.6 },
+  plastic_bag:  { dragFactor: 1.2 },
   bottle:       { dragFactor: 0.85 },
   fishing_net:  { dragFactor: 1.0 },
   styrofoam:    { dragFactor: 0.7 },

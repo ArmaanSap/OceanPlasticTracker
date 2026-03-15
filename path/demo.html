@@ -14,16 +14,31 @@
 <body>
   <div id="map"></div>
   <script>
-    const map = L.map("map").setView([28.5, -79.0], 5);
+    const map = L.map("map").setView([30, -40], 4);
 
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    const tileLayer = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
       attribution: "OpenStreetMap"
     }).addTo(map);
 
-    fetch("path.json")
+    let animationInterval = null;
+
+    fetch("path.json?t=" + Date.now())
       .then(res => res.json())
       .then(data => {
+        if (!data.path || data.path.length === 0) return;
+
         const coords = data.path.map(p => [p.lat, p.lon]);
+
+        // center on average of start and end
+        const avgLat = (coords[0][0] + coords[coords.length - 1][0]) / 2;
+        const avgLon = (coords[0][1] + coords[coords.length - 1][1]) / 2;
+        map.setView([avgLat, avgLon], 5);
+
+        // clear old layers and animation
+        map.eachLayer(layer => {
+          if (layer !== tileLayer) map.removeLayer(layer);
+        });
+        if (animationInterval) clearInterval(animationInterval);
 
         // draw the full path as a line
         L.polyline(coords, { color: "orange", weight: 2 }).addTo(map);
@@ -34,14 +49,17 @@
           .addTo(map);
 
         // end marker
-        L.marker(coords[coords.length - 1])
-          .bindPopup("End — Day " + data.days)
-          .addTo(map);
+        L.marker(coords[coords.length - 1], {
+          icon: L.divIcon({
+            className: '',
+            html: '<div style="width:12px;height:12px;background:red;border-radius:50%;border:2px solid white;"></div>'
+          })
+        }).bindPopup("End — Day " + data.days).addTo(map);
 
         // animated marker
         let i = 0;
         const marker = L.circleMarker(coords[0], { color: "blue", radius: 6 }).addTo(map);
-        setInterval(() => {
+        animationInterval = setInterval(() => {
           i = (i + 1) % coords.length;
           marker.setLatLng(coords[i]);
         }, 100);
