@@ -379,7 +379,7 @@ var ContinentalShelf = turf.polygon([[
 
 var allZones = [
   { name: "Sargasso Sea", poly: TheSargassoSea, msg: "Plastic trapped here..." },
-  { name: "The Trench", poly: PuertoRicoTrench, msg: "Microplastics sink here..." }
+  { name: "The Trench", poly: PuertoRicoTrench, msg: "Microplastics sink here..." },
   { name: "Shallow Coral Reefs", poly: ShallowCoralReefs, msg: "Coral reefs are vulnerable to microplastics..." },
   { name: "The Blake Plateau", poly: TheBlakePlateau, msg: "This area is a hotspot for microplastic accumulation..." },
   { name: "Bermuda Reefs", poly: BermudaReefs, msg: "Microplastics can harm marine life here..." },
