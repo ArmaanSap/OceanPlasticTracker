@@ -16,6 +16,8 @@ A real-time ocean plastic drift simulator built for hackathon. Drop a piece of t
 
 ## Demo
 
+Play around with all the buttons!
+
 1. Clone the repo
 2. Add your Groq API key to a `.env` file in the root:
    ```
@@ -111,9 +113,9 @@ OceanPlasticTracker/
 
 | Type | Drag Factor | Notes |
 |---|---|---|
-| Plastic bag | 1.2 | Light, high surface area, wind-driven |
-| Bottle | 0.85 | Partially submerged, slower than current |
-| Fishing net | 1.0 | Neutral, follows current exactly |
-| Styrofoam | 1.3 | Very light, fastest moving |
+| Plastic bag | 1.4 | Light, high surface area, wind-driven |
+| Bottle | 1.1 | Partially submerged, slower than current |
+| Fishing net | 0.8 | Neutral, follows current exactly |
+| Styrofoam | 1.7 | Very light, fastest moving |
 
 ---
