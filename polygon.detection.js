@@ -1,6 +1,6 @@
 var ecoregionsLayer;
 
-fetch('meow.json')
+fetch('meow_ecos.json')
   .then(res => res.json())
   .then(data => {
     // This adds the entire global grid to your map!
