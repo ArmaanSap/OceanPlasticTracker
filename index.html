@@ -1,44 +1,476 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ocean Pollution Tracker</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ocean Plastic Tracker</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-     integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
-     crossorigin=""/>
+    :root {
+      --ocean:    #0a1628;
+      --deep:     #060e1a;
+      --surface:  #112240;
+      --accent:   #00d4ff;
+      --accent2:  #ff6b35;
+      --text:     #e8f4f8;
+      --muted:    #6b8fa8;
+      --border:   rgba(0, 212, 255, 0.15);
+      --radius:   6px;
+    }
 
-    <style>
-        #map { 
-            height: 100vh; 
-            width: 100%;
-        }
-        body { margin: 0; padding: 0; }
-    </style>
+    body {
+      background: var(--ocean);
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      min-height: 100vh;
+    }
+
+    /* ── header ── */
+    header {
+      background: var(--deep);
+      border-bottom: 1px solid var(--border);
+      padding: 16px 32px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    header .logo {
+      font-family: 'Space Mono', monospace;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      color: var(--accent);
+      text-transform: uppercase;
+    }
+
+    header .divider {
+      width: 1px;
+      height: 20px;
+      background: var(--border);
+    }
+
+    header .subtitle {
+      font-size: 12px;
+      color: var(--muted);
+      letter-spacing: 0.05em;
+    }
+
+    /* ── help button ── */
+    .help-btn {
+      margin-left: auto;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--accent);
+      font-family: 'Space Mono', monospace;
+      font-size: 11px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      padding: 8px 16px;
+      cursor: pointer;
+      transition: border-color 0.2s;
+    }
+    .help-btn:hover { border-color: var(--accent); }
+
+    /* ── help modal ── */
+    #helpModal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.6);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .help-content {
+      background: rgba(10, 22, 40, 0.88);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 40px;
+      max-width: 560px;
+      width: 90%;
+      position: relative;
+      max-height: 80vh;
+      overflow-y: auto;
+    }
+
+    .help-content h2 {
+      font-family: 'Space Mono', monospace;
+      font-size: 13px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 28px;
+    }
+
+    .help-section { margin-bottom: 28px; }
+    .help-section:last-child { margin-bottom: 0; }
+
+    .help-section h3 {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text);
+      margin-bottom: 8px;
+    }
+
+    .help-section p {
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.8;
+    }
+
+    .help-section a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+    .help-section a:hover { text-decoration: underline; }
+
+    .close-btn {
+      position: absolute;
+      top: 16px;
+      right: 20px;
+      background: none;
+      border: none;
+      color: var(--muted);
+      font-size: 22px;
+      cursor: pointer;
+      line-height: 1;
+      transition: color 0.2s;
+    }
+    .close-btn:hover { color: var(--text); }
+
+    /* ── controls panel ── */
+    .controls {
+      background: var(--deep);
+      border-bottom: 1px solid var(--border);
+      padding: 20px 32px;
+      display: flex;
+      align-items: flex-end;
+      gap: 24px;
+      flex-wrap: wrap;
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    label {
+      font-family: 'Space Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    input, select {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      font-family: 'Space Mono', monospace;
+      font-size: 13px;
+      padding: 9px 12px;
+      outline: none;
+      transition: border-color 0.2s;
+      -webkit-appearance: none;
+    }
+
+    input:focus, select:focus {
+      border-color: var(--accent);
+    }
+
+    input { width: 120px; }
+
+    select {
+      width: 160px;
+      cursor: pointer;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236b8fa8' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 10px center;
+      padding-right: 28px;
+    }
+
+    input[type="range"] {
+      width: 140px;
+      padding: 0;
+      height: 4px;
+      border: none;
+      background: var(--surface);
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+
+    .range-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .range-value {
+      font-family: 'Space Mono', monospace;
+      font-size: 12px;
+      color: var(--accent);
+      min-width: 48px;
+    }
+
+    /* ── run button ── */
+    .run-btn {
+      background: var(--accent);
+      color: var(--deep);
+      border: none;
+      border-radius: var(--radius);
+      font-family: 'Space Mono', monospace;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      padding: 10px 24px;
+      cursor: pointer;
+      transition: opacity 0.15s, transform 0.1s;
+      white-space: nowrap;
+      align-self: flex-end;
+    }
+
+    .run-btn:hover  { opacity: 0.85; }
+    .run-btn:active { transform: scale(0.97); }
+
+    .run-btn.loading {
+      opacity: 0.5;
+      cursor: not-allowed;
+      pointer-events: none;
+    }
+
+    /* ── status bar ── */
+    .status {
+      font-family: 'Space Mono', monospace;
+      font-size: 11px;
+      color: var(--muted);
+      padding: 10px 32px;
+      border-bottom: 1px solid var(--border);
+      min-height: 36px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .status .dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--muted);
+      flex-shrink: 0;
+    }
+
+    .status.running .dot { background: var(--accent); animation: pulse 1s infinite; }
+    .status.done    .dot { background: #00e676; }
+    .status.error   .dot { background: var(--accent2); }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.3; }
+    }
+
+    /* ── validation ── */
+    input.invalid { border-color: var(--accent2); }
+  </style>
 </head>
 <body>
 
-    <div id="map"></div>
-     
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-     integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
-     crossorigin=""></script>
+  <header>
+    <span class="logo">Ocean Plastic Tracker</span>
+    <div class="divider"></div>
+    <span class="subtitle">Atlantic drift simulation · NOAA current data</span>
+    <button class="help-btn" onclick="document.getElementById('helpModal').style.display='flex'">How can I help?</button>
+  </header>
 
-    <script>
-    var map = L.map('map').setView([0, 0], 2);
+  <div class="controls">
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19,
-        attribution: '© OpenStreetMap contributors'
-    }).addTo(map);
+    <div class="field">
+      <label>Latitude</label>
+      <input type="number" id="lat" value="35.42" min="-90" max="90" step="0.1" placeholder="35.42">
+    </div>
 
-    setTimeout(function() {
-        map.flyTo([35.7596, -79.0193], 7, {
-            duration: 3, // seconds
-            easeLinearity: 0.25
+    <div class="field">
+      <label>Longitude</label>
+      <input type="number" id="lon" value="-40.93" min="-180" max="180" step="0.1" placeholder="-40.93">
+    </div>
+
+    <div class="field">
+      <label>Trash type</label>
+      <select id="trashType">
+        <option value="plastic_bag">Plastic bag</option>
+        <option value="bottle">Bottle</option>
+        <option value="fishing_net">Fishing net</option>
+        <option value="styrofoam">Styrofoam</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <label>Days to simulate</label>
+      <div class="range-row">
+        <input type="range" id="days" min="30" max="730" value="365" step="5"
+               oninput="document.getElementById('daysVal').textContent = this.value + 'd'">
+        <span class="range-value" id="daysVal">365d</span>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Data interval</label>
+      <div class="range-row">
+        <input type="range" id="interval" min="1" max="24" value="6" step="1"
+               oninput="document.getElementById('intervalVal').textContent = this.value + 'h'">
+        <span class="range-value" id="intervalVal">6h</span>
+      </div>
+    </div>
+
+    <button class="run-btn" id="runBtn" onclick="runSimulation()">Run simulation</button>
+
+  </div>
+
+  <div class="status" id="status">
+    <div class="dot"></div>
+    <span id="statusText">Ready — set parameters and hit run</span>
+  </div>
+
+  <iframe
+    id="map"
+    src="./path/demo.html"
+    style="width:100%; height:calc(100vh - 160px); border:none; border-radius:8px;">
+  </iframe>
+
+  <!-- ── help modal ── -->
+  <div id="helpModal" onclick="if(event.target===this)this.style.display='none'">
+    <div class="help-content">
+      <button class="close-btn" onclick="document.getElementById('helpModal').style.display='none'">×</button>
+      <h2>How can I help?</h2>
+
+      <!-- EDIT SECTIONS BELOW -->
+
+      <div class="help-section">
+        <h3>What is ocean plastic pollution?</h3>
+        <p>
+          Every year, millions of tons of plastic enter the ocean. It breaks down into
+          microplastics that enter the food chain and persist for hundreds of years.
+          The Atlantic alone contains several major garbage patches where currents trap
+          debris in slow-moving gyres.
+        </p>
+      </div>
+
+      <div class="help-section">
+        <h3>How to reduce plastic waste</h3>
+        <p>
+          Use reusable bags, bottles, and containers. Avoid single-use plastics.
+          Participate in local beach or river cleanups. Support businesses that use
+          sustainable packaging. Properly dispose of and recycle plastics so they
+          don't enter waterways.
+        </p>
+      </div>
+
+      <div class="help-section">
+        <h3>Organizations to support</h3>
+        <p>
+          <a href="https://oceanconservancy.org" target="_blank">Ocean Conservancy</a> — runs the world's largest beach cleanup program.<br><br>
+          <a href="https://www.4ocean.com" target="_blank">4ocean</a> — pulls plastic from the ocean with every purchase.<br><br>
+          <a href="https://theoceancleanup.com" target="_blank">The Ocean Cleanup</a> — develops technology to remove plastic from the ocean.
+        </p>
+      </div>
+
+      <div class="help-section">
+        <h3>How this simulator works</h3>
+        <p>
+          This tool uses real NOAA ocean current data to simulate how a piece of trash
+          drifts over time. Choose a starting location, trash type, and duration to see
+          where it ends up. The path is calculated using bilinear interpolation on a
+          0.2° resolution current grid updated daily.
+        </p>
+      </div>
+
+      <!-- END OF EDITABLE SECTIONS -->
+
+    </div>
+  </div>
+
+  <script>
+    function getParams() {
+      return {
+        lat:       parseFloat(document.getElementById("lat").value),
+        lon:       parseFloat(document.getElementById("lon").value),
+        trashType: document.getElementById("trashType").value,
+        days:      parseInt(document.getElementById("days").value),
+        interval:  parseInt(document.getElementById("interval").value),
+      };
+    }
+
+    function setStatus(state, message) {
+      const el = document.getElementById("status");
+      el.className = "status " + state;
+      document.getElementById("statusText").textContent = message;
+    }
+
+    function validate(params) {
+      const latEl = document.getElementById("lat");
+      const lonEl = document.getElementById("lon");
+      latEl.classList.remove("invalid");
+      lonEl.classList.remove("invalid");
+
+      if (isNaN(params.lat) || params.lat < -90 || params.lat > 90) {
+        latEl.classList.add("invalid");
+        return "Invalid latitude";
+      }
+      if (isNaN(params.lon) || params.lon < -180 || params.lon > 180) {
+        lonEl.classList.add("invalid");
+        return "Invalid longitude";
+      }
+      return null;
+    }
+
+    async function runSimulation() {
+      const params = getParams();
+      const error = validate(params);
+
+      if (error) {
+        setStatus("error", error);
+        return;
+      }
+
+      const btn = document.getElementById("runBtn");
+      btn.classList.add("loading");
+      setStatus("running", "Running simulation...");
+
+      try {
+        const res = await fetch("/simulate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(params)
         });
-    }, 1000); 
-</script>
+
+        if (!res.ok) {
+          const err = await res.json();
+          throw new Error(err.error);
+        }
+
+        await new Promise(r => setTimeout(r, 1000));
+        document.getElementById("map").src = "./path/demo.html?t=" + Date.now();
+        setStatus("done",
+          "Done — " + params.trashType.replace("_", " ") +
+          " from " + params.lat + ", " + params.lon +
+          " over " + params.days + " days · interval " + params.interval + "h"
+        );
+      } catch (err) {
+        setStatus("error", "Error: " + err.message);
+      } finally {
+        btn.classList.remove("loading");
+      }
+    }
+  </script>
+
 </body>
 </html>

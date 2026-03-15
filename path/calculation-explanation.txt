@@ -1,0 +1,96 @@
+The data for ocean currents was downloaded from here: https://bit.ly/2026-smathhacks-keynote-2 - Data Access Form as an utf-8 json file
+
+
+
+OCEAN TRASH SIMULATOR
+=====================
+Simulates a piece of trash drifting along real Atlantic ocean currents.
+Uses NOAA geostrophic current data to calculate realistic drift paths.
+
+
+FILES
+-----
+calculating-path.mjs                       — core simulation logic
+run.mjs                                    — entry point
+miamicurrents_adb9_d715_505d.json          — NOAA ocean current data (do not delete)
+path.json                                  — output, generated when you run a simulation
+
+
+REQUIREMENTS
+------------
+Node.js v18 or higher. Check with:
+    node --version
+
+
+HOW TO RUN
+----------
+Import and call runSimulation from run.mjs:
+
+    import { runSimulation } from "./run.mjs";
+    runSimulation(startLat, startLon, trashType, days);
+
+Parameters:
+    startLat    — starting latitude  (e.g. 28.5)
+    startLon    — starting longitude (e.g. -79.0)
+    trashType   — one of: plastic_bag, bottle, fishing_net, styrofoam
+    days        — number of days to simulate (365 recommended)
+
+Example:
+    runSimulation(28.5, -79.0, "plastic_bag", 365);
+
+This writes path.json to the project folder.
+
+
+TRASH TYPES
+-----------
+Each trash type has a drag factor that scales how fast it moves
+relative to the current. A factor of 1.0 means it moves exactly
+with the current, like a water particle.
+
+    plastic_bag   x   — light, rides the surface, wind pushes it faster
+    bottle        x  — partially submerged, moves slightly slower
+    fishing_net   x   — neutral, follows the current exactly
+    styrofoam     x   — very light, fastest moving
+
+
+OUTPUT — path.json
+------------------
+{
+  "trashType": "plastic_bag",
+  "startLat": 28.5,
+  "startLon": -79.0,
+  "days": 365,
+  "path": [
+    { "lat": 28.5,   "lon": -79.0,   "day": 0 },
+    { "lat": 28.512, "lon": -78.988, "day": 0.25 },
+    ...
+  ]
+}
+
+path is an array of positions recorded every 6 hours.
+For 365 days that is 1460 entries total.
+The simulation stops early if the trash hits land.
+
+
+HOW IT WORKS
+------------
+1. Loads the NOAA current grid — 842,747 points covering the global ocean,
+   each with a latitude, longitude, and u/v velocity in m/s.
+
+2. At each timestep, finds the 4 grid points surrounding the trash position
+   and blends their velocities using bilinear interpolation to get a smooth
+   current estimate.
+
+3. Converts that velocity from m/s into degrees of lat/lon movement and
+   advances the trash position by one 6-hour step.
+
+4. Repeats for the total number of days and records every position.
+
+
+CURRENT DATA
+------------
+Source: NOAA Miami Geostrophic Currents (miamicurrents)
+Variables: u_current (eastward m/s), v_current (northward m/s)
+Resolution: 0.2 degrees (~22km per grid cell)
+Coverage: Global
+Downloaded from: https://cwcgom.aoml.noaa.gov/erddap/griddap/miamicurrents.html

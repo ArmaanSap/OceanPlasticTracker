@@ -9,46 +9,371 @@
   <style>
     body { margin: 0; }
     #map { height: 100vh; width: 100vw; }
+
+    #controls {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 1000;
+      background: rgba(6, 14, 26, 0.6);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-radius: 40px;
+      padding: 10px 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .ctrl-btn {
+      background: none;
+      border: none;
+      color: #e8f4f8;
+      font-size: 13px;
+      cursor: pointer;
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.15s;
+      flex-shrink: 0;
+    }
+    .ctrl-btn:hover { background: rgba(0, 212, 255, 0.1); }
+    .ctrl-btn.active { color: #00d4ff; }
+
+    .speed-label {
+      font-family: monospace;
+      font-size: 11px;
+      color: #00d4ff;
+      min-width: 28px;
+      text-align: center;
+    }
+
+    .divider {
+      width: 1px;
+      height: 18px;
+      background: rgba(0, 212, 255, 0.2);
+    }
+
+    #progressBar {
+      width: 140px;
+      accent-color: #00d4ff;
+      cursor: pointer;
+    }
+
+    #dayLabel {
+      font-family: monospace;
+      font-size: 11px;
+      color: #6b8fa8;
+      min-width: 44px;
+    }
+
+    #dayInput {
+      width: 48px;
+      background: rgba(17, 34, 64, 0.9);
+      border: 1px solid rgba(0, 212, 255, 0.2);
+      border-radius: 4px;
+      color: #e8f4f8;
+      font-family: monospace;
+      font-size: 11px;
+      padding: 3px 6px;
+      outline: none;
+      text-align: center;
+    }
+    #dayInput:focus { border-color: #00d4ff; }
   </style>
 </head>
 <body>
   <div id="map"></div>
+
+  <div id="controls">
+    <button class="ctrl-btn" onclick="rewind()" title="Rewind">&#9664;&#9664;</button>
+    <button class="ctrl-btn active" id="playBtn" onclick="togglePlay()" title="Play/Pause">&#9646;&#9646;</button>
+    <button class="ctrl-btn" onclick="fastForward()" title="Fast forward">&#9654;&#9654;</button>
+
+    <div class="divider"></div>
+
+    <button class="ctrl-btn" onclick="changeSpeed(-1)" title="Slower">&#8722;</button>
+    <span class="speed-label" id="speedLabel">1x</span>
+    <button class="ctrl-btn" onclick="changeSpeed(1)" title="Faster">&#43;</button>
+
+    <div class="divider"></div>
+
+    <input type="range" id="progressBar" min="0" max="1000" value="0"
+      oninput="scrub(this.value)">
+
+    <div class="divider"></div>
+
+    <span id="dayLabel">Day</span>
+    <input type="number" id="dayInput" min="0" value="0"
+      onchange="jumpToDay(this.value)" title="Jump to day">
+
+    <div class="divider"></div>
+
+    <button class="ctrl-btn" id="pathModeBtn" onclick="cyclePathMode()" title="Path mode">〰</button>
+
+  </div>
+
   <script>
+    let animationInterval = null;
+    let clickMarker = null;
+    let coords = [];
+    let totalDays = 0;
+    let i = 0;
+    let playing = false;
+    let speedIdx = 2;
+    const speeds = [0.25, 0.5, 1, 2, 4, 8];
+    let animMarker = null;
+
+    let pathVisible = true;
+    let traceMode = false;
+    let tracePolyline = null;
+
+    let polyline = null;
+
+    // 0 = full path, 1 = trace, 2 = hidden
+    let pathMode = 0;
+
+    const pathModeIcons = { 0: "〰", 1: "✏", 2: "—" };
+    const pathModeLabels = { 0: "full", 1: "trace", 2: "hidden" };
+    
+    // restore settings
+    if (localStorage.getItem("speedIdx") !== null)
+      speedIdx = parseInt(localStorage.getItem("speedIdx"));
+    
+    if (localStorage.getItem("pathMode") !== null)
+      pathMode = parseInt(localStorage.getItem("pathMode"));
+
+    document.getElementById("speedLabel").textContent = speeds[speedIdx] + "x";
+    document.getElementById("pathModeBtn").innerHTML = pathModeIcons[pathMode];
+    document.getElementById("pathModeBtn").classList.toggle("active", pathMode !== 2);  
+
     const map = L.map("map").setView([30, -40], 4);
 
     const tileLayer = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
       attribution: "OpenStreetMap"
     }).addTo(map);
+    function getIntervalMs() {
+      return Math.max(16, Math.round(100 / speeds[speedIdx]));
+    }
 
-    let animationInterval = null;
+    function startAnimation() {
+      if (animationInterval) clearInterval(animationInterval);
+      animationInterval = setInterval(() => {
+        if (i >= coords.length - 1) {
+          i = coords.length - 1;
+          pauseAnimation();
+          return;
+        }
+        i++;
+        updateMarker();
+      }, getIntervalMs());
+      playing = true;
+      document.getElementById("playBtn").innerHTML = "&#9646;&#9646;";
+      document.getElementById("playBtn").classList.add("active");
+
+      localStorage.setItem("playing", "true");
+    }
+
+    function pauseAnimation() {
+      if (animationInterval) clearInterval(animationInterval);
+      animationInterval = null;
+      playing = false;
+      document.getElementById("playBtn").innerHTML = "&#9654;";
+      document.getElementById("playBtn").classList.remove("active");
+      localStorage.setItem("playing", "false");
+    }
+
+    function togglePlay() {
+      if (playing) {
+        pauseAnimation();
+      } else {
+        if (i >= coords.length - 1) i = 0;
+        startAnimation();
+      }
+    }
+
+    function rewind() {
+      i = Math.max(0, i - Math.floor(coords.length / 10));
+      
+      
+      updateMarker();
+    }
+
+    function fastForward() {
+      i = Math.min(coords.length - 1, i + Math.floor(coords.length / 10));
+      
+      
+      updateMarker();
+    }
+
+    function changeSpeed(dir) {
+      speedIdx = Math.max(0, Math.min(speeds.length - 1, speedIdx + dir));
+      document.getElementById("speedLabel").textContent = speeds[speedIdx] + "x";
+      if (playing) startAnimation();
+      localStorage.setItem("speedIdx", speedIdx);
+    }
+
+    function scrub(val) {
+      if (coords.length === 0) return;
+      i = Math.floor((val / 1000) * (coords.length - 1));
+
+      
+      updateMarker();
+    }
+
+    function jumpToDay(day) {
+      if (coords.length === 0 || totalDays === 0) return;
+      day = Math.max(0, Math.min(totalDays, parseInt(day)));
+      i = Math.round((day / totalDays) * (coords.length - 1));
+      
+      
+      updateMarker();
+    }
+
+    function updateMarker() {
+      if (!animMarker || coords.length === 0) return;
+      animMarker.setLatLng(coords[i]);
+      const pct = coords.length > 1 ? (i / (coords.length - 1)) : 0;
+      document.getElementById("progressBar").value = Math.round(pct * 1000);
+      const day = totalDays > 0 ? Math.round(pct * totalDays) : 0;
+      document.getElementById("dayInput").value = day;
+
+      if (pathMode === 1) {
+        if (tracePolyline) map.removeLayer(tracePolyline);
+        tracePolyline = L.polyline(coords.slice(0, i + 1), { color: "orange", weight: 4 }).addTo(map);
+      }
+    }
+
+
+    function cyclePathMode() {
+      // clean up current mode
+      if (pathMode === 0) map.removeLayer(polyline);
+      if (pathMode === 1 && tracePolyline) map.removeLayer(tracePolyline);
+
+      pathMode = (pathMode + 1) % 3;
+
+      if (pathMode === 0) {
+        polyline.addTo(map);
+      } else if (pathMode === 1) {
+        tracePolyline = L.polyline([coords[i]], { color: "orange", weight: 4 }).addTo(map);
+      }
+
+      document.getElementById("pathModeBtn").innerHTML = pathModeIcons[pathMode];
+      document.getElementById("pathModeBtn").classList.toggle("active", pathMode !== 2);
+      localStorage.setItem("pathMode", pathMode);
+    }
+
+
+    map.on("click", async function(e) {
+      const lat = e.latlng.lat.toFixed(4);
+      const lon = e.latlng.lng.toFixed(4);
+
+      const res = await fetch("/inocean", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ lat: parseFloat(lat), lon: parseFloat(lon) })
+      });
+      const data = await res.json();
+
+      if (clickMarker) map.removeLayer(clickMarker);
+
+      if (!data.inOcean) {
+        clickMarker = L.marker([lat, lon], {
+          icon: L.divIcon({
+            className: '',
+            html: '<div style="width:10px;height:10px;background:#ff6b35;border-radius:50%;border:2px solid white;"></div>'
+          })
+        }).bindPopup("Not in the ocean").addTo(map);
+        clickMarker.openPopup();
+        return;
+      }
+
+      clickMarker = L.marker([lat, lon], {
+        icon: L.divIcon({
+          className: '',
+          html: '<div style="width:10px;height:10px;background:#00d4ff;border-radius:50%;border:2px solid white;"></div>'
+        })
+      }).bindPopup(
+        "<div style='font-family:monospace;font-size:12px;line-height:1.8'>" +
+        "<b>" + lat + ", " + lon + "</b><br>" +
+        "<a href='#' onclick='setCoords(" + lat + "," + lon + ");return false;' " +
+        "style='color:#00d4ff;text-decoration:none;'>Set as start coordinates</a>" +
+        "</div>"
+      ).addTo(map);
+      clickMarker.openPopup();
+    });
+
+    function setCoords(lat, lon) {
+      window.parent.document.getElementById("lat").value = lat;
+      window.parent.document.getElementById("lon").value = lon;
+      if (clickMarker) map.removeLayer(clickMarker);
+    }
 
     fetch("path.json?t=" + Date.now())
       .then(res => res.json())
       .then(data => {
         if (!data.path || data.path.length === 0) return;
 
-        const coords = data.path.map(p => [p.lat, p.lon]);
+        coords = data.path.map(p => [p.lat, p.lon]);
+        totalDays = data.days;
+        i = 0;
 
-        // center on average of start and end
-        const avgLat = (coords[0][0] + coords[coords.length - 1][0]) / 2;
-        const avgLon = (coords[0][1] + coords[coords.length - 1][1]) / 2;
-        map.setView([avgLat, avgLon], 5);
+        document.getElementById("dayInput").max = totalDays;
 
-        // clear old layers and animation
+        // const avgLat = (coords[0][0] + coords[coords.length - 1][0]) / 2;
+        // const avgLon = (coords[0][1] + coords[coords.length - 1][1]) / 2;
+        map.setView(coords[0], 5);
+
         map.eachLayer(layer => {
           if (layer !== tileLayer) map.removeLayer(layer);
         });
         if (animationInterval) clearInterval(animationInterval);
 
-        // draw the full path as a line
-        L.polyline(coords, { color: "orange", weight: 2 }).addTo(map);
+        polyline = L.polyline(coords, { color: "orange", weight: 4 }).addTo(map);
 
-        // start marker
+        if (pathMode === 0) {
+          // already added
+        } else if (pathMode === 1) {
+          map.removeLayer(polyline);
+          tracePolyline = L.polyline([coords[i]], { color: "orange", weight: 4 }).addTo(map);
+        } else if (pathMode === 2) {
+          map.removeLayer(polyline);
+        }
+
+        document.getElementById("pathModeBtn").innerHTML = pathModeIcons[pathMode];
+        document.getElementById("pathModeBtn").classList.toggle("active", pathMode !== 2);
+
+        const clickPolyline = L.polyline(coords, { 
+          color: "transparent", 
+          weight: 20,
+          opacity: 0
+        }).addTo(map);
+
+        clickPolyline.on("click", function(e) {
+          let nearest = 0;
+          let minDist = Infinity;
+          for (let j = 0; j < coords.length; j++) {
+            const dx = coords[j][0] - e.latlng.lat;
+            const dy = coords[j][1] - e.latlng.lng;
+            const dist = dx * dx + dy * dy;
+            if (dist < minDist) {
+              minDist = dist;
+              nearest = j;
+            }
+          }
+          i = nearest;
+          updateMarker();
+        });
+
+
         L.marker(coords[0])
           .bindPopup("Start — Day 0")
           .addTo(map);
 
-        // end marker
         L.marker(coords[coords.length - 1], {
           icon: L.divIcon({
             className: '',
@@ -56,13 +381,18 @@
           })
         }).bindPopup("End — Day " + data.days).addTo(map);
 
-        // animated marker
-        let i = 0;
-        const marker = L.circleMarker(coords[0], { color: "blue", radius: 6 }).addTo(map);
-        animationInterval = setInterval(() => {
-          i = (i + 1) % coords.length;
-          marker.setLatLng(coords[i]);
-        }, 100);
+        animMarker = L.marker(coords[0], {
+          icon: L.icon({
+            iconUrl: "pictures/" + data.trashType + ".png",
+            iconSize: [36, 36],
+            iconAnchor: [18, 18],
+          })
+        }).addTo(map);
+        
+        const wasPlaying = localStorage.getItem("playing") !== "false";
+        if (wasPlaying) startAnimation();
+        else pauseAnimation();
+
       });
   </script>
 </body>
