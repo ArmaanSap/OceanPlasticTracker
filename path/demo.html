@@ -106,6 +106,63 @@
       color: #6b8fa8 !important;
     }
 
+    #ecoPanel {
+      display: none;
+      position: fixed;
+      width: 520px;
+      max-height: 220px;
+      z-index: 1000;
+      background: rgba(6, 14, 26, 0.88);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(0, 212, 255, 0.2);
+      border-radius: 12px;
+      padding: 16px 20px;
+      overflow-y: auto;
+      font-family: monospace;
+      font-size: 11px;
+      color: #e8f4f8;
+    }
+
+    #ecoPanel .eco-header {
+      display: flex;
+      gap: 20px;
+      margin-bottom: 12px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid rgba(0, 212, 255, 0.15);
+    }
+
+    #ecoPanel .eco-header span {
+      color: #6b8fa8;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    #ecoPanel .eco-header b {
+      display: block;
+      color: #00d4ff;
+      font-size: 12px;
+      margin-top: 2px;
+    }
+
+    #ecoPanel .eco-body {
+      line-height: 1.8;
+      color: #e8f4f8;
+    }
+
+    #ecoClose {
+      position: absolute;
+      top: 10px;
+      right: 14px;
+      background: none;
+      border: none;
+      color: #6b8fa8;
+      font-size: 16px;
+      cursor: pointer;
+    }
+    #ecoClose:hover { color: #e8f4f8; }
+
   </style>
 </head>
 <body>
@@ -411,11 +468,15 @@
           html: '<div style="width:10px;height:10px;background:#00d4ff;border-radius:50%;border:2px solid white;"></div>'
         })
       }).bindPopup(
+
         "<div style='font-family:monospace;font-size:12px;line-height:1.8'>" +
         "<b>" + lat + ", " + lon + "</b><br>" +
         "<span style='color:#00d4ff;font-size:11px'>" + regionText + "</span><br>" +
         "<a href='#' onclick='setCoords(" + lat + "," + lon + ");return false;' " +
-        "style='color:#00d4ff;text-decoration:none;'>Set as start coordinates</a>" +
+        "style='display:inline-block;margin-top:6px;padding:6px 12px;" +
+        "background:rgba(139,92,246,0.15);border:1px solid rgba(139,92,246,0.5);" +
+        "border-radius:6px;color:#ffffff;text-decoration:none;font-size:11px;font-weight:bold;'>" +
+        "Click here to set as start coordinates</a>" +
         "</div>").addTo(map);
       
       clickMarker.openPopup();
@@ -469,6 +530,75 @@
           opacity: 0
         }).addTo(map);
 
+        
+        clickPolyline.on("click", async function(e) {
+          clickOnPath = true;
+          setTimeout(() => { clickOnPath = false; }, 100);
+
+          let nearest = 0;
+          let minDist = Infinity;
+          for (let j = 0; j < coords.length; j++) {
+            const dx = coords[j][0] - e.latlng.lat;
+            const dy = coords[j][1] - e.latlng.lng;
+            const dist = dx * dx + dy * dy;
+            if (dist < minDist) {
+              minDist = dist;
+              nearest = j;
+            }
+          }
+          i = nearest;
+          updateMarker();
+
+          const ecoregion = getEcoregion(coords[nearest][0], coords[nearest][1]);
+          const lat = coords[nearest][0].toFixed(4);
+          const lon = coords[nearest][1].toFixed(4);
+
+          // show panel with loading state
+          const panel = document.getElementById("ecoPanel");
+          document.getElementById("ecoLat").textContent = lat + ", " + lon;
+          document.getElementById("ecoRegion").textContent = ecoregion || "Open ocean";
+          document.getElementById("ecoTrash").textContent = data.trashType.replace("_", " ");
+          document.getElementById("ecoBody").textContent = "Loading...";
+
+          const containerPoint = map.latLngToContainerPoint(coords[nearest]);
+          const panelWidth = 520;
+          const panelHeight = 220;
+
+          let left = containerPoint.x + 20;
+          let top = containerPoint.y - panelHeight / 2;
+
+          // keep it within screen bounds
+          if (left + panelWidth > window.innerWidth) left = containerPoint.x - panelWidth - 20;
+          if (top < 10) top = 10;
+          if (top + panelHeight > window.innerHeight - 100) top = window.innerHeight - panelHeight - 100;
+
+          panel.style.left = left + "px";
+          panel.style.top = top + "px";
+          panel.style.display = "block";
+
+          panel.style.display = "block";
+
+          try {
+            const res = await fetch("/ecosystem", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                lat: lat,
+                lon: lon,
+                trashType: data.trashType,
+                ecoregion: ecoregion
+              })
+            });
+
+            const json = await res.json();
+            document.getElementById("ecoBody").innerHTML = json.text.replace(/\n/g, "<br>").replace(/•/g, "•");
+          } catch (err) {
+            document.getElementById("ecoBody").textContent = "Failed to load ecosystem info.";
+          }
+        });
+
+
+        /*
         clickPolyline.on("click", function(e) {
           clickOnPath = true;
           setTimeout(() => { clickOnPath = false; }, 100);
@@ -482,7 +612,7 @@
 
           const ecoregion = getEcoregion(coords[i][0], coords[i][1]);
           console.log("Ecoregion:", ecoregion);
-        });
+        }); */
 
 
         L.marker(coords[0])
@@ -508,6 +638,27 @@
         if (wasPlaying) startAnimation();
         else pauseAnimation();
 
-      });
+      }); 
   </script>
+
+
+  <div id="ecoPanel">
+    <button id="ecoClose" onclick="document.getElementById('ecoPanel').style.display='none'">×</button>
+    <div class="eco-header">
+      <div>
+        <span>Location</span>
+        <b id="ecoLat">—</b>
+      </div>
+      <div>
+        <span>Ecosystem</span>
+        <b id="ecoRegion">—</b>
+      </div>
+      <div>
+        <span>Trash type</span>
+        <b id="ecoTrash">—</b>
+      </div>
+    </div>
+    <div class="eco-body" id="ecoBody">Loading...</div>
+  </div>
+
 </body>

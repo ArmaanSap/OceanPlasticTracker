@@ -1,16 +1,20 @@
+
+import 'dotenv/config';
+
 import express from "express";
 import { runSimulation } from "./path/run-calculate-path.mjs";
 import * as turf from "@turf/turf";
 import fs from "fs";
-// 1. Swap the import to Google Generative AI
-import { GoogleGenerativeAI } from "@google/generative-ai";
+
+
+import Groq from "groq-sdk";
 
 const app = express();
 app.use(express.json());
 
-// 2. Initialize Gemini 1.5 Flash
-const genAI = new GoogleGenerativeAI("AIzaSyDd2dnSAltB9t9vwjRiFZTUw6j51FmM5CQ");
-const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+
+const token = process.env.API_KEY;
+const groq = new Groq({ apiKey: token });
 
 const ocean = JSON.parse(fs.readFileSync("./ne_110m_ocean.json", "utf8"));
 
@@ -47,27 +51,26 @@ app.post("/inocean", (req, res) => {
   res.json({ inOcean });
 });
 
-// 3. Updated Gemini Route
-app.post("/api/gemini", async (req, res) => {
-  const { region } = req.body;
+app.post("/ecosystem", async (req, res) => {
+  const { lat, lon, trashType, ecoregion } = req.body;
 
-  if (!region) {
-    return res.status(400).json({ message: "Region is required." });
-  }
+  const location = ecoregion
+    ? `the ${ecoregion} ecoregion (coordinates ${lat}, ${lon})`
+    : `open ocean at coordinates ${lat}, ${lon}`;
+
+  const prompt = `A ${trashType.replace("_", " ")} is floating in ${location}. In a few short bullet points, no more than 150 words, describe how this specific type of trash affects the local marine ecosystem at this location, including animals, plants, and non-living components. Be specific to the region (particularly, specific species to that region) and trash type. At the end, include brief links to external sources to learn more.`;
 
   try {
-    // Ensure you are using 'model.generateContent' (Gemini syntax)
-    // NOT 'anthropic.messages.create'
-    const result = await model.generateContent(`You are a marine biologist. A piece of plastic has entered the ${region} ecoregion. Briefly name one sea animal found here and how this plastic specifically threatens it. Keep it under 40 words.`);
-    
-    const response = await result.response;
-    const text = response.text();
-
-    res.json({ message: text });
+    const completion = await groq.chat.completions.create({
+      messages: [{ role: "user", content: prompt }],
+      model: "llama-3.1-8b-instant",
+    });
+    const text = completion.choices[0].message.content;
+    console.log("Groq response:", text);
+    res.json({ text });
   } catch (err) {
-    console.error("AI Error:", err);
-    // This helps you see if the error is actually a 401 (Auth) or something else
-    res.status(err.status || 500).json({ message: "AI Link Failed", detail: err.message });
+    console.log("groq error:", err.message);
+    res.status(500).json({ error: err.message });
   }
 });
 
