@@ -104,60 +104,6 @@
       color: #6b8fa8 !important;
     }
 
-    /* ── Route popup ── */
-    .route-popup {
-      font-family: monospace;
-      min-width: 180px;
-      padding: 2px 0;
-    }
-    .route-popup-header {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      margin-bottom: 10px;
-    }
-    .route-popup-icon {
-      font-size: 20px;
-      line-height: 1;
-    }
-    .route-popup-title {
-      font-size: 13px;
-      font-weight: bold;
-      color: #00d4ff;
-      letter-spacing: 0.04em;
-    }
-    .route-popup-subtitle {
-      font-size: 10px;
-      color: #6b8fa8;
-      margin-top: 1px;
-    }
-    .route-popup-divider {
-      border: none;
-      border-top: 1px solid rgba(0, 212, 255, 0.15);
-      margin: 8px 0;
-    }
-    .route-popup-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      font-size: 11px;
-      color: #aac8d8;
-      margin: 5px 0;
-    }
-    .route-popup-row span:last-child {
-      color: #e8f4f8;
-      font-weight: bold;
-    }
-    .route-popup-badge {
-      display: inline-block;
-      background: rgba(0, 212, 255, 0.12);
-      border: 1px solid rgba(0, 212, 255, 0.25);
-      border-radius: 20px;
-      font-size: 10px;
-      color: #00d4ff;
-      padding: 2px 8px;
-      margin-top: 10px;
-    }
   </style>
 </head>
 <body>
@@ -215,11 +161,11 @@
 
     const pathModeIcons = { 0: "〰", 1: "✏", 2: "—" };
     const pathModeLabels = { 0: "full", 1: "trace", 2: "hidden" };
-    
+
     // restore settings
     if (localStorage.getItem("speedIdx") !== null)
       speedIdx = parseInt(localStorage.getItem("speedIdx"));
-    
+
     if (localStorage.getItem("pathMode") !== null)
       pathMode = parseInt(localStorage.getItem("pathMode"));
 
@@ -280,11 +226,15 @@
 
     function rewind() {
       i = Math.max(0, i - Math.floor(coords.length / 10));
+
+
       updateMarker();
     }
 
     function fastForward() {
       i = Math.min(coords.length - 1, i + Math.floor(coords.length / 10));
+
+
       updateMarker();
     }
 
@@ -298,6 +248,8 @@
     function scrub(val) {
       if (coords.length === 0) return;
       i = Math.floor((val / 1000) * (coords.length - 1));
+
+
       updateMarker();
     }
 
@@ -305,6 +257,8 @@
       if (coords.length === 0 || totalDays === 0) return;
       day = Math.max(0, Math.min(totalDays, parseInt(day)));
       i = Math.round((day / totalDays) * (coords.length - 1));
+
+
       updateMarker();
     }
 
@@ -410,6 +364,8 @@
 
         document.getElementById("dayInput").max = totalDays;
 
+        // const avgLat = (coords[0][0] + coords[coords.length - 1][0]) / 2;
+        // const avgLon = (coords[0][1] + coords[coords.length - 1][1]) / 2;
         map.setView(coords[0], 5);
 
         map.eachLayer(layer => {
@@ -451,37 +407,6 @@
           }
           i = nearest;
           updateMarker();
-
-          // ── Route popup ──
-          const pct = coords.length > 1 ? (nearest / (coords.length - 1)) : 0;
-          const day = totalDays > 0 ? Math.round(pct * totalDays) : 0;
-          const lat = coords[nearest][0].toFixed(4);
-          const lon = coords[nearest][1].toFixed(4);
-          const progress = Math.round(pct * 100);
-
-          const popupContent =
-            "<div class='route-popup'>" +
-              "<div class='route-popup-header'>" +
-                "<div class='route-popup-icon'>🌊</div>" +
-                "<div>" +
-                  "<div class='route-popup-title'>Drift Route</div>" +
-                  "<div class='route-popup-subtitle'>Plastic trajectory path</div>" +
-                "</div>" +
-              "</div>" +
-              "<hr class='route-popup-divider'>" +
-              "<div class='route-popup-row'><span>📍 Latitude</span><span>" + lat + "°</span></div>" +
-              "<div class='route-popup-row'><span>📍 Longitude</span><span>" + lon + "°</span></div>" +
-              "<div class='route-popup-row'><span>📅 Day</span><span>" + day + " / " + totalDays + "</span></div>" +
-              "<div class='route-popup-row'><span>🗺 Progress</span><span>" + progress + "%</span></div>" +
-              "<div style='text-align:center'>" +
-                "<span class='route-popup-badge'>placeholder data</span>" +
-              "</div>" +
-            "</div>";
-
-          L.popup({ maxWidth: 240 })
-            .setLatLng(e.latlng)
-            .setContent(popupContent)
-            .openOn(map);
         });
 
 
@@ -503,7 +428,7 @@
             iconAnchor: [18, 18],
           })
         }).addTo(map);
-        
+
         const wasPlaying = localStorage.getItem("playing") !== "false";
         if (wasPlaying) startAnimation();
         else pauseAnimation();
@@ -511,4 +436,3 @@
       });
   </script>
 </body>
-</html>
