@@ -6,6 +6,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
+
   <style>
     body { margin: 0; }
     #map { height: 100vh; width: 100vw; }
@@ -137,9 +139,17 @@
 
     <button class="ctrl-btn" id="mapToggle" onclick="toggleMap()" title="Toggle satellite">⊕</button>
 
+    <button class="ctrl-btn" id="ecoToggle" onclick="toggleEcoregions()" title="Toggle ecoregions">⬡</button>
+
   </div>
 
   <script>
+
+    let meowData = null;
+    let ecoregionsLayer = null;
+    let ecoVisible = false;
+    let clickOnPath = false;
+
     let animationInterval = null;
     let clickMarker = null;
     let coords = [];
@@ -156,6 +166,9 @@
 
     let polyline = null;
 
+    let satellite = false;
+
+
     // 0 = full path, 1 = trace, 2 = hidden
     let pathMode = 0;
 
@@ -168,6 +181,11 @@
 
     if (localStorage.getItem("pathMode") !== null)
       pathMode = parseInt(localStorage.getItem("pathMode"));
+    if (localStorage.getItem("satellite") !== null)
+      satellite = localStorage.getItem("satellite") === "true";
+
+    if (localStorage.getItem("ecoVisible") !== null)
+      ecoVisible = localStorage.getItem("ecoVisible") === "true";
 
     document.getElementById("speedLabel").textContent = speeds[speedIdx] + "x";
     document.getElementById("pathModeBtn").innerHTML = pathModeIcons[pathMode];
@@ -178,6 +196,9 @@
     const tileLayer = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
       attribution: "OpenStreetMap"
     }).addTo(map);
+
+    const patchLayer = L.layerGroup().addTo(map);
+
     function getIntervalMs() {
       return Math.max(16, Math.round(100 / speeds[speedIdx]));
     }
@@ -186,7 +207,12 @@
       attribution: "Esri"
     });
 
-    let satellite = false;
+    if (satellite) {
+      map.removeLayer(tileLayer);
+      satelliteLayer.addTo(map);
+      document.getElementById("mapToggle").classList.add("active");
+    }
+
 
     function startAnimation() {
       if (animationInterval) clearInterval(animationInterval);
@@ -305,10 +331,54 @@
         tileLayer.addTo(map);
       }
       document.getElementById("mapToggle").classList.toggle("active", satellite);
+      localStorage.setItem("satellite", satellite);
     }
 
+    fetch("../meow_ecos.json")
+      .then(res => res.json())
+      .then(data => {
+        meowData = data;
+        ecoregionsLayer = L.geoJSON(data, {
+          style: { color: "#3388ff", weight: 1, fillOpacity: 0.1 },
+          interactive: false
+        });
+        
+        if (ecoVisible) {
+          ecoregionsLayer.addTo(map);
+          document.getElementById("ecoToggle").classList.add("active");
+        }
+
+      });
+
+    function getEcoregion(lat, lon) {
+      if (!meowData) return null;
+      const point = turf.point([lon, lat]);
+      let found = null;
+      meowData.features.forEach(feature => {
+        if (turf.booleanPointInPolygon(point, feature)) {
+          found = feature.properties.ECOREGION;
+        }
+      });
+      return found;
+    }
+
+    function toggleEcoregions() {
+      ecoVisible = !ecoVisible;
+      if (ecoVisible) {
+        ecoregionsLayer.addTo(map);
+      } else {
+        map.removeLayer(ecoregionsLayer);
+      }
+      document.getElementById("ecoToggle").classList.toggle("active", ecoVisible);
+      localStorage.setItem("ecoVisible", ecoVisible);
+    }
 
     map.on("click", async function(e) {
+
+      if (clickOnPath) {
+        return;
+      }
+
       const lat = e.latlng.lat.toFixed(4);
       const lon = e.latlng.lng.toFixed(4);
 
@@ -332,6 +402,9 @@
         return;
       }
 
+      const ecoregion = getEcoregion(parseFloat(lat), parseFloat(lon));
+      const regionText = ecoregion ? ecoregion : "Open ocean";
+
       clickMarker = L.marker([lat, lon], {
         icon: L.divIcon({
           className: '',
@@ -340,10 +413,11 @@
       }).bindPopup(
         "<div style='font-family:monospace;font-size:12px;line-height:1.8'>" +
         "<b>" + lat + ", " + lon + "</b><br>" +
+        "<span style='color:#00d4ff;font-size:11px'>" + regionText + "</span><br>" +
         "<a href='#' onclick='setCoords(" + lat + "," + lon + ");return false;' " +
         "style='color:#00d4ff;text-decoration:none;'>Set as start coordinates</a>" +
-        "</div>"
-      ).addTo(map);
+        "</div>").addTo(map);
+      
       clickMarker.openPopup();
     });
 
@@ -369,8 +443,10 @@
         map.setView(coords[0], 5);
 
         map.eachLayer(layer => {
-          if (layer !== tileLayer) map.removeLayer(layer);
+          if (layer !== tileLayer && layer !== patchLayer && layer !== ecoregionsLayer && layer !== satelliteLayer) map.removeLayer(layer);
         });
+
+
         if (animationInterval) clearInterval(animationInterval);
 
         polyline = L.polyline(coords, { color: "orange", weight: 4 }).addTo(map);
@@ -394,19 +470,18 @@
         }).addTo(map);
 
         clickPolyline.on("click", function(e) {
-          let nearest = 0;
-          let minDist = Infinity;
-          for (let j = 0; j < coords.length; j++) {
-            const dx = coords[j][0] - e.latlng.lat;
-            const dy = coords[j][1] - e.latlng.lng;
-            const dist = dx * dx + dy * dy;
-            if (dist < minDist) {
-              minDist = dist;
-              nearest = j;
-            }
-          }
-          i = nearest;
+          clickOnPath = true;
+          setTimeout(() => { clickOnPath = false; }, 100);
+
+          const line = turf.lineString(coords.map(c => [c[1], c[0]]));
+          const clicked = turf.point([e.latlng.lng, e.latlng.lat]);
+          const snapped = turf.nearestPointOnLine(line, clicked);
+          i = snapped.properties.index;
+
           updateMarker();
+
+          const ecoregion = getEcoregion(coords[i][0], coords[i][1]);
+          console.log("Ecoregion:", ecoregion);
         });
 
 
