@@ -29,7 +29,6 @@ function loadCurrentGrid(filename) {
   }
 
   console.log("Loaded " + grid.length + " grid points");
-  console.log("First point:", grid[0]);
   
   return grid;
 }
