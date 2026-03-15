@@ -1,0 +1,34 @@
+in a different file, put this:
+
+    import { runSimulation } from "./run-calculate-path.mjs";
+    runSimulation(28.5, -79.0, "plastic_bag", 365);
+
+runSimulation takes the parameters
+    runSimulation(start latitude, start longitude, trash type, # of days to simulate)
+
+you can just set days to some high number (but not too high, something like 365 days (a year) should guarantee finish without taking too long)
+
+trash type should just always be "plastic_bag" for now
+
+this will update the path.json file (this file is 
+overwritten everytime a new path is generated.
+this means two paths can not be done simultaneously).
+
+
+path.json is structured as:
+
+    {
+    "trashType": "plastic_bag",
+    "startLat": 28.5,
+    "startLon": -79.0,
+    "days": 365,
+    "path": [
+        { "lat": 28.5, "lon": -79.0, "day": 0 },
+        { "lat": 28.512, "lon": -78.988, "day": 0.25 },
+        ...
+    ]
+    }
+
+
+the path is an array of objects of key/value pairs
+each object contains info on the latitude, longitude, and current day (time)

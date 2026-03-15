@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Ocean Trash Tracker</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    body { margin: 0; }
+    #map { height: 100vh; width: 100vw; }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <script>
+    const map = L.map("map").setView([28.5, -79.0], 5);
+
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution: "OpenStreetMap"
+    }).addTo(map);
+
+    fetch("path.json")
+      .then(res => res.json())
+      .then(data => {
+        const coords = data.path.map(p => [p.lat, p.lon]);
+
+        // draw the full path as a line
+        L.polyline(coords, { color: "orange", weight: 2 }).addTo(map);
+
+        // start marker
+        L.marker(coords[0])
+          .bindPopup("Start — Day 0")
+          .addTo(map);
+
+        // end marker
+        L.marker(coords[coords.length - 1])
+          .bindPopup("End — Day " + data.days)
+          .addTo(map);
+
+        // animated marker
+        let i = 0;
+        const marker = L.circleMarker(coords[0], { color: "blue", radius: 6 }).addTo(map);
+        setInterval(() => {
+          i = (i + 1) % coords.length;
+          marker.setLatLng(coords[i]);
+        }, 100);
+      });
+  </script>
+</body>
+</html>

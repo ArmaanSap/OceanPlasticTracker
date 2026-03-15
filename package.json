@@ -1,0 +1,20 @@
+{
+  "name": "oceanplastictracker",
+  "version": "1.0.0",
+  "description": "2026 smathhacks project\r trash in ocean and how it affects ecosystem visualizer",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ArmaanSap/OceanPlasticTracker.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/ArmaanSap/OceanPlasticTracker/issues"
+  },
+  "homepage": "https://github.com/ArmaanSap/OceanPlasticTracker#readme"
+}
