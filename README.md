@@ -18,6 +18,10 @@ A real-time ocean plastic drift simulator built for hackathon. Drop a piece of t
 
 Play around with all the buttons!
 
+https://oceanplastictracker-production.up.railway.app/
+
+OR
+
 1. Clone the repo
 2. Add your Groq API key to a `.env` file in the root:
    ```
